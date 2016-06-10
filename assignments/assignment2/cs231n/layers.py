@@ -487,7 +487,6 @@ def conv_backward_naive(dout, cache):
   
   db = np.zeros(b.shape)
   dw = np.zeros(w.shape)
-  dx = np.zeros(x.shape)
   dx_padded = np.zeros(x_padded.shape)
 
   for i in xrange(N):
@@ -524,7 +523,19 @@ def max_pool_forward_naive(x, pool_param):
   #############################################################################
   # TODO: Implement the max pooling forward pass                              #
   #############################################################################
-  pass
+  N, C, H, W = x.shape
+  pool_height = pool_param['pool_height']
+  pool_width = pool_param['pool_width']
+  stride = pool_param['stride']
+
+  out = np.zeros( (N, C, (H-pool_height)/stride+1, (W-pool_width)/stride+1) )
+
+  for i in xrange(N):
+    for c in xrange(C):
+      # downsample
+      for j in xrange(0, H, stride):
+        for k in xrange(0, W, stride):
+          out[i,c,j/stride,k/stride] = x[i,c,j:j+pool_height,k:k+pool_width].max()
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -547,7 +558,22 @@ def max_pool_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the max pooling backward pass                             #
   #############################################################################
-  pass
+  x, pool_param = cache
+  N, C, H, W = x.shape
+
+  pool_height = pool_param['pool_height']
+  pool_width = pool_param['pool_width']
+  stride = pool_param['stride']
+
+  dx = np.zeros(x.shape)
+
+  for i in xrange(N):
+    for c in xrange(C):
+      # only the max cell for each pool in x gets the gradient; everything else is 0
+      for j in xrange(0, H, stride):
+        for k in xrange(0, W, stride):
+          max_loc = np.unravel_index(np.argmax(x[i,c,j:j+pool_height,k:k+pool_width]), (pool_height, pool_width))
+          dx[i,c,j+max_loc[0],k+max_loc[1]] += dout[i,c,j/stride,k/stride]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
