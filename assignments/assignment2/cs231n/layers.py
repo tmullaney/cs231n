@@ -427,7 +427,25 @@ def conv_forward_naive(x, w, b, conv_param):
   # TODO: Implement the convolutional forward pass.                           #
   # Hint: you can use the function np.pad for padding.                        #
   #############################################################################
-  pass
+  N = x.shape[0]
+  H = x.shape[2]
+  W = x.shape[3]
+  F = w.shape[0]
+  HH = w.shape[2]
+  WW = w.shape[3]
+  stride = conv_param['stride']
+  pad = conv_param['pad']
+  x_padded = np.pad(x, ((0,0), (0,0), (pad,pad), (pad,pad)), mode='constant', constant_values=0)
+  
+  out = np.zeros( (N, F, 1+(H+2*pad-HH)/stride, 1+(W+2*pad-WW)/stride) )
+  
+  for i in xrange(N):
+    for f in xrange(F):
+      # each filter gets dot-producted with each local region of input (including all channels)
+      for j in xrange(0, 1+H+2*pad-HH, stride):
+        for k in xrange(0, 1+W+2*pad-WW, stride):
+          out[i, f, j/stride, k/stride] = np.sum(x_padded[i, :, j:j+HH, k:k+WW] * w[f, :, :, :]) + b[f]
+    
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -452,7 +470,35 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
-  pass
+  # db = dout
+  # dw = sum of local regions of x including all channels, for each input, for each filter
+  # dx = sum of w's applied to each local region
+  x, w, b, conv_param = cache
+  N = x.shape[0]
+  C = x.shape[1]
+  H = x.shape[2]
+  W = x.shape[3]
+  F = w.shape[0]
+  HH = w.shape[2]
+  WW = w.shape[3]
+  stride = conv_param['stride']
+  pad = conv_param['pad']
+  x_padded = np.pad(x, ((0,0), (0,0), (pad,pad), (pad,pad)), mode='constant', constant_values=0)
+  
+  db = np.zeros(b.shape)
+  dw = np.zeros(w.shape)
+  dx = np.zeros(x.shape)
+  dx_padded = np.zeros(x_padded.shape)
+
+  for i in xrange(N):
+    for f in xrange(F):
+      for j in xrange(0, 1+H+2*pad-HH, stride):
+        for k in xrange(0, 1+W+2*pad-WW, stride):
+          db[f] += 1 * dout[i, f, j/stride, k/stride]
+          dx_padded[i,:,j:j+HH,k:k+WW] += w[f,:,:,:] * dout[i, f, j/stride, k/stride] # (C,HH,WW)
+          dw[f,:] += x_padded[i, :, j:j+HH, k:k+WW] * dout[i, f, j/stride, k/stride]
+
+  dx = dx_padded[:,:,1:-1,1:-1]  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
