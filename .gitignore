@@ -1,4 +1,6 @@
 videos/
 cifar-10-batches-py/
 *.tar.gz
-
+coco_captioning/
+pretrained_model.h5
+tiny-imagenet-100-A/
