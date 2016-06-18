@@ -135,7 +135,19 @@ class CaptioningRNN(object):
     # defined above to store loss and gradients; grads[k] should give the      #
     # gradients for self.params[k].                                            #
     ############################################################################
-    pass
+    # forward
+    h0 = np.dot(features, W_proj) + b_proj # (N, D) * (D, H) + (, H)
+    x, x_cache = word_embedding_forward(captions_in, W_embed) # (N, T, W)
+    h, h_cache = rnn_forward(x, h0, Wx, Wh, b)
+    scores, scores_cache = temporal_affine_forward(h, W_vocab, b_vocab)
+    loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
+
+    # backward
+    dh, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dscores, scores_cache)
+    dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dh, h_cache)
+    grads['W_embed'] = word_embedding_backward(dx, x_cache)
+    grads['W_proj'] = np.dot(features.T, dh0)
+    grads['b_proj'] = dh0.sum(axis=0)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -197,7 +209,17 @@ class CaptioningRNN(object):
     # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
     # a loop.                                                                 #
     ###########################################################################
-    pass
+    prev_word = np.zeros((N, 1)).astype(int)
+    prev_word[xrange(N)] = self._start
+    h = np.dot(features, W_proj) + b_proj
+    for t in xrange(max_length):
+        embedding, _ = word_embedding_forward(prev_word, W_embed)
+        h, _ = rnn_forward(embedding, h, Wx, Wh, b)
+        scores, _ = temporal_affine_forward(h, W_vocab, b_vocab)
+        out_word = np.argmax(scores[:, 0, :], axis=1).reshape(-1, 1)
+        captions[xrange(N), t] = out_word.reshape(N)
+        prev_word = out_word
+        h = h[:,0,:]
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
