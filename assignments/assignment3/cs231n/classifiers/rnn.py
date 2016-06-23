@@ -138,13 +138,23 @@ class CaptioningRNN(object):
     # forward
     h0 = np.dot(features, W_proj) + b_proj # (N, D) * (D, H) + (, H)
     x, x_cache = word_embedding_forward(captions_in, W_embed) # (N, T, W)
-    h, h_cache = rnn_forward(x, h0, Wx, Wh, b)
+    if self.cell_type == 'rnn':
+        h, h_cache = rnn_forward(x, h0, Wx, Wh, b)
+    elif self.cell_type == 'lstm':
+        h, h_cache = lstm_forward(x, h0, Wx, Wh, b)
+    else:
+        raise ValueError('Invalid cell_type "%s"' % cell_type)
     scores, scores_cache = temporal_affine_forward(h, W_vocab, b_vocab)
     loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
 
     # backward
     dh, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dscores, scores_cache)
-    dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dh, h_cache)
+    if self.cell_type == 'rnn':
+        dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dh, h_cache)
+    elif self.cell_type == 'lstm':
+        dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(dh, h_cache)
+    else:
+        raise ValueError('Invalid cell_type "%s"' % cell_type)
     grads['W_embed'] = word_embedding_backward(dx, x_cache)
     grads['W_proj'] = np.dot(features.T, dh0)
     grads['b_proj'] = dh0.sum(axis=0)
@@ -214,7 +224,12 @@ class CaptioningRNN(object):
     h = np.dot(features, W_proj) + b_proj
     for t in xrange(max_length):
         embedding, _ = word_embedding_forward(prev_word, W_embed)
-        h, _ = rnn_forward(embedding, h, Wx, Wh, b)
+        if self.cell_type == 'rnn':
+            h, _ = rnn_forward(embedding, h, Wx, Wh, b)
+        elif self.cell_type == 'lstm':
+            h, _ = lstm_forward(embedding, h, Wx, Wh, b)
+        else:
+            raise ValueError('Invalid cell_type "%s"' % cell_type)
         scores, _ = temporal_affine_forward(h, W_vocab, b_vocab)
         out_word = np.argmax(scores[:, 0, :], axis=1).reshape(-1, 1)
         captions[xrange(N), t] = out_word.reshape(N)
